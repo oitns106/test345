@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMI 智慧健康管理儀表板</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome CDN for modern icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom gauge marker transition */
+    #gauge-needle {
+      transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    /* Custom scrollbar for record list */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased flex flex-col justify-between">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <i class="fa-solid fa-weight-scale text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 leading-tight">BMI 健體追蹤助手</h1>
+          <p class="text-xs text-slate-500">台灣衛福部成人體位指標標準</p>
+        </div>
+      </div>
+      <div class="text-xs sm:text-sm font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+        <i class="fa-solid fa-shield-heart text-emerald-500"></i>
+        <span>本地端私密儲存</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full flex-1">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+      
+      <!-- Left Column: Input Form & Result Card -->
+      <section class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Input Form Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-emerald-500"></i>
+              輸入量測數據
+            </h2>
+            <span class="text-xs text-slate-400">所有欄位均為必填</span>
+          </div>
+
+          <form id="bmi-form" class="space-y-4" onsubmit="event.preventDefault(); calculateAndSave();">
+            <!-- Height Input -->
+            <div>
+              <label for="height" class="block text-sm font-semibold text-slate-700 mb-1.5">身高 (cm)</label>
+              <div class="relative rounded-xl shadow-sm">
+                <input 
+                  type="number" 
+                  step="0.1" 
+                  id="height" 
+                  name="height" 
+                  placeholder="例如: 172.5" 
+                  required 
+                  min="50" 
+                  max="250"
+                  class="block w-full rounded-xl border border-slate-300 py-3 pl-4 pr-14 text-slate-900 text-base placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                >
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                  <span class="text-sm font-medium text-slate-400">公分</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Weight Input -->
+            <div>
+              <label for="weight" class="block text-sm font-semibold text-slate-700 mb-1.5">體重 (kg)</label>
+              <div class="relative rounded-xl shadow-sm">
+                <input 
+                  type="number" 
+                  step="0.1" 
+                  id="weight" 
+                  name="weight" 
+                  placeholder="例如: 65.0" 
+                  required 
+                  min="20" 
+                  max="300"
+                  class="block w-full rounded-xl border border-slate-300 py-3 pl-4 pr-14 text-slate-900 text-base placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                >
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                  <span class="text-sm font-medium text-slate-400">公斤</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Date & Time Input -->
+            <div>
+              <label for="record-date" class="block text-sm font-semibold text-slate-700 mb-1.5">量測日期</label>
+              <div class="relative rounded-xl shadow-sm">
+                <input 
+                  type="date" 
+                  id="record-date" 
+                  name="record-date" 
+                  required
+                  class="block w-full rounded-xl border border-slate-300 py-2.5 px-4 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                >
+              </div>
+            </div>
+
+            <!-- Feedback Toast Notification Container -->
+            <div id="form-error" class="hidden p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium items-center gap-2">
+              <i class="fa-solid fa-circle-exclamation"></i>
+              <span id="form-error-msg">請填寫正確身高與體重數值</span>
+            </div>
+
+            <!-- Submit Button -->
+            <button 
+              type="submit" 
+              class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl shadow-md shadow-emerald-600/30 transition-all duration-150 flex items-center justify-center gap-2 text-base cursor-pointer"
+            >
+              <i class="fa-solid fa-bolt"></i>
+              <span>計算 BMI 並儲存</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Result Card -->
+        <div id="result-card" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between transition-all">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">當前計算結果</h3>
+              <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                尚未計算
+              </span>
+            </div>
+
+            <div class="flex items-baseline gap-3 mb-4">
+              <span class="text-xs font-semibold text-slate-500">BMI 指數</span>
+              <div class="flex items-baseline">
+                <span id="bmi-val" class="text-5xl font-extrabold tracking-tight text-slate-900">--</span>
+                <span class="text-sm font-medium text-slate-400 ml-1.5">kg/m²</span>
+              </div>
+            </div>
+
+            <!-- Visual Gradient Gauge Bar -->
+            <div class="my-5">
+              <div class="flex justify-between text-[11px] font-medium text-slate-400 mb-1.5">
+                <span>過輕 (18.5)</span>
+                <span>正常 (24)</span>
+                <span>過重 (27)</span>
+                <span>肥胖</span>
+              </div>
+              <div class="relative w-full h-3 rounded-full bg-slate-100 overflow-visible">
+                <!-- Color Bands Background -->
+                <div class="absolute inset-0 rounded-full flex overflow-hidden">
+                  <div class="h-full bg-sky-400" style="width: 25%;" title="過輕 < 18.5"></div>
+                  <div class="h-full bg-emerald-400" style="width: 25%;" title="正常 18.5 ~ 24"></div>
+                  <div class="h-full bg-amber-400" style="width: 20%;" title="過重 24 ~ 27"></div>
+                  <div class="h-full bg-rose-500" style="width: 30%;" title="肥胖 >= 27"></div>
+                </div>
+                <!-- Needle Indicator -->
+                <div id="gauge-needle" class="absolute -top-1.5 w-4 h-6 -ml-2 flex flex-col items-center opacity-0 pointer-events-none" style="left: 0%;">
+                  <div class="w-3.5 h-3.5 bg-slate-900 border-2 border-white rounded-full shadow-md"></div>
+                  <div class="w-0.5 h-2 bg-slate-900"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Health Summary & Recommendation Info -->
+            <div id="health-info-box" class="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-600 space-y-1.5">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-slate-400"></i>
+                <span id="status-desc">請於上方輸入數值以開始評估體位。</span>
+              </div>
+              <div id="ideal-weight-box" class="hidden text-emerald-800 font-medium">
+                您的理想健康體重範圍為：<strong id="ideal-weight-range" class="font-bold">-- ~ -- kg</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Trends Chart & Recent History List -->
+      <section class="lg:col-span-7 flex flex-col gap-6">
+        
+        <!-- Chart Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-emerald-500"></i>
+                BMI 歷史變化趨勢
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">綠色區間代表衛福部成人正常指標 (18.5 ~ 24.0)</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>標準範圍
+              </span>
+            </div>
+          </div>
+
+          <!-- Chart Area -->
+          <div class="relative w-full h-[280px] sm:h-[320px]">
+            <canvas id="bmiChart"></canvas>
+            <div id="no-chart-data" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/70 rounded-xl text-slate-400">
+              <i class="fa-solid fa-chart-column text-4xl mb-2 text-slate-300"></i>
+              <p class="text-sm font-medium">尚無足夠數據，請新增量測紀錄以生成折線圖</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Records Table Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col flex-1">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-slate-500"></i>
+              量測歷史記錄
+              <span id="record-count" class="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">0 筆</span>
+            </h3>
+            <button 
+              id="clear-all-btn" 
+              onclick="confirmClearAll()"
+              class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-rose-200 transition-colors hidden"
+            >
+              <i class="fa-solid fa-trash-can mr-1"></i>清空全部
+            </button>
+          </div>
+
+          <!-- Records Table / Container -->
+          <div class="overflow-x-auto custom-scrollbar max-h-72 flex-1">
+            <table class="w-full text-left text-sm text-slate-600 border-collapse">
+              <thead class="text-xs text-slate-400 uppercase bg-slate-50/80 sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th scope="col" class="py-2.5 px-3">日期</th>
+                  <th scope="col" class="py-2.5 px-3">身高</th>
+                  <th scope="col" class="py-2.5 px-3">體重</th>
+                  <th scope="col" class="py-2.5 px-3">BMI</th>
+                  <th scope="col" class="py-2.5 px-3">評估狀態</th>
+                  <th scope="col" class="py-2.5 px-3 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody" class="divide-y divide-slate-100">
+                <!-- Records injected by JS -->
+              </tbody>
+            </table>
+            <div id="no-history-msg" class="py-10 text-center text-slate-400 text-sm">
+              尚未有歷史紀錄，請輸入您的身高體重進行第一次計算。
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+    <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-400">
+      依據衛生福利部國民健康署標準：過輕 (BMI < 18.5)｜正常 (18.5 ≦ BMI < 24)｜過重 (24 ≦ BMI < 27)｜輕度肥胖 (27 ≦ BMI < 30)｜中度肥胖 (30 ≦ BMI < 35)｜重度肥胖 (BMI ≧ 35)
+    </div>
+  </footer>
+
+  <!-- Notification Dialog Modal (Alternative to alert) -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center transform transition-all">
+      <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4 text-xl">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h4 class="text-base font-bold text-slate-900 mb-2">確定要清空所有紀錄嗎？</h4>
+      <p class="text-xs text-slate-500 mb-6">此動作將永久移除瀏覽器中所有的歷史量測數據，且無法復原。</p>
+      <div class="flex gap-3">
+        <button onclick="closeModal()" class="flex-1 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+          取消
+        </button>
+        <button onclick="executeClearAll()" class="flex-1 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-sm shadow-rose-600/30">
+          確定清空
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State and Storage Key
+    const STORAGE_KEY = 'bmi_records_data_v1';
+    let records = [];
+    let chartInstance = null;
+
+    // BMI Criteria standard table (衛福部成人標準)
+    function evaluateBMI(bmi) {
+      if (bmi < 18.5) {
+        return {
+          status: '體重過輕',
+          colorClass: 'bg-sky-100 text-sky-700 border-sky-300',
+          badgeText: '體重過輕',
+          description: '您的體重低於標準值，建議適當攝取均衡營養並搭配力量訓練增加肌肉量。',
+          gaugePercent: Math.max(5, Math.min(24, (bmi / 18.5) * 24))
+        };
+      } else if (bmi < 24) {
+        return {
+          status: '健康正常',
+          colorClass: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+          badgeText: '標準正常',
+          description: '太棒了！您的體重維持在理想範圍內，請繼續保持規律運動與健康飲食。',
+          gaugePercent: 25 + ((bmi - 18.5) / (24 - 18.5)) * 25
+        };
+      } else if (bmi < 27) {
+        return {
+          status: '體重過重',
+          colorClass: 'bg-amber-100 text-amber-700 border-amber-300',
+          badgeText: '體重過重',
+          description: '您的體重稍偏高，建議稍微調整熱量攝取，並每週維持至少 150 分鐘的中度運動。',
+          gaugePercent: 50 + ((bmi - 24) / (27 - 24)) * 20
+        };
+      } else if (bmi < 30) {
+        return {
+          status: '輕度肥胖',
+          colorClass: 'bg-orange-100 text-orange-700 border-orange-300',
+          badgeText: '輕度肥胖',
+          description: '體位已達輕度肥胖，建議逐步調整生活型態，減少高糖精緻澱粉飲食。',
+          gaugePercent: 70 + ((bmi - 27) / (30 - 27)) * 10
+        };
+      } else if (bmi < 35) {
+        return {
+          status: '中度肥胖',
+          colorClass: 'bg-rose-100 text-rose-700 border-rose-300',
+          badgeText: '中度肥胖',
+          description: '體位處於中度肥胖，可能增加心血管與代謝負擔，建議諮詢醫師或營養師。',
+          gaugePercent: 80 + ((bmi - 30) / (35 - 30)) * 10
+        };
+      } else {
+        return {
+          status: '重度肥胖',
+          colorClass: 'bg-purple-100 text-purple-700 border-purple-300',
+          badgeText: '重度肥胖',
+          description: '體位為重度肥胖，建議盡快由專業醫療與體重管理團隊提供健康減重指導。',
+          gaugePercent: Math.min(97, 90 + ((bmi - 35) / 15) * 10)
+        };
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Set today's date into the date input as default
+      const dateInput = document.getElementById('record-date');
+      const today = new Date().toISOString().split('T')[0];
+      dateInput.value = today;
+
+      // Load records from localStorage
+      loadStoredRecords();
+      initChart();
+      updateUI();
+    });
+
+    function loadStoredRecords() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          records = JSON.parse(stored);
+          if (!Array.isArray(records)) records = [];
+        }
+      } catch (e) {
+        console.error('無法讀取本地儲存資料', e);
+        records = [];
+      }
+    }
+
+    function saveRecordsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      } catch (e) {
+        console.error('儲存至 LocalStorage 失敗', e);
+      }
+    }
+
+    function calculateAndSave() {
+      const heightInput = document.getElementById('height');
+      const weightInput = document.getElementById('weight');
+      const dateInput = document.getElementById('record-date');
+      const errorBox = document.getElementById('form-error');
+
+      const h = parseFloat(heightInput.value);
+      const w = parseFloat(weightInput.value);
+      const recordDate = dateInput.value;
+
+      if (isNaN(h) || isNaN(w) || h <= 0 || w <= 0 || !recordDate) {
+        errorBox.classList.remove('hidden');
+        errorBox.classList.add('flex');
+        return;
+      }
+      errorBox.classList.add('hidden');
+      errorBox.classList.remove('flex');
+
+      // Formula: BMI = weight (kg) / (height (m) ^ 2)
+      const heightInMeters = h / 100;
+      const bmi = parseFloat((w / (heightInMeters * heightInMeters)).toFixed(1));
+      const evalResult = evaluateBMI(bmi);
+
+      // Create record entry
+      const newEntry = {
+        id: 'bmi_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        date: recordDate,
+        timestamp: Date.now(),
+        height: h,
+        weight: w,
+        bmi: bmi,
+        status: evalResult.status
+      };
+
+      // Add to beginning of records array
+      records.unshift(newEntry);
+      // Sort chronologically ascending for line chart consistency, but we store sorted by date
+      saveRecordsToStorage();
+
+      // Display live result
+      displayResult(newEntry, evalResult);
+
+      // Update table & chart
+      updateUI();
+    }
+
+    function displayResult(entry, evalResult) {
+      const bmiValEl = document.getElementById('bmi-val');
+      const statusBadge = document.getElementById('status-badge');
+      const needle = document.getElementById('gauge-needle');
+      const statusDesc = document.getElementById('status-desc');
+      const idealWeightBox = document.getElementById('ideal-weight-box');
+      const idealWeightRange = document.getElementById('ideal-weight-range');
+
+      // Update BMI text
+      bmiValEl.textContent = entry.bmi.toFixed(1);
+
+      // Update Status Badge
+      statusBadge.className = `px-3 py-1 rounded-full text-xs font-bold border ${evalResult.colorClass}`;
+      statusBadge.textContent = evalResult.status;
+
+      // Update Needle Position on gauge bar
+      needle.style.opacity = '1';
+      needle.style.left = `${evalResult.gaugePercent}%`;
+
+      // Update Description
+      statusDesc.textContent = evalResult.description;
+
+      // Calculate Healthy Weight Range (BMI 18.5 ~ 24.0)
+      const hM = entry.height / 100;
+      const minHealthyW = (18.5 * hM * hM).toFixed(1);
+      const maxHealthyW = (23.9 * hM * hM).toFixed(1);
+      idealWeightRange.textContent = `${minHealthyW} ~ ${maxHealthyW} kg`;
+      idealWeightBox.classList.remove('hidden');
+    }
+
+    function updateUI() {
+      const tbody = document.getElementById('history-tbody');
+      const noHistoryMsg = document.getElementById('no-history-msg');
+      const recordCount = document.getElementById('record-count');
+      const clearBtn = document.getElementById('clear-all-btn');
+
+      recordCount.textContent = `${records.length} 筆`;
+
+      if (records.length === 0) {
+        tbody.innerHTML = '';
+        noHistoryMsg.classList.remove('hidden');
+        clearBtn.classList.add('hidden');
+      } else {
+        noHistoryMsg.classList.add('hidden');
+        clearBtn.classList.remove('hidden');
+
+        // Render records sorted by date desc
+        tbody.innerHTML = records.map((item) => {
+          const evalResult = evaluateBMI(item.bmi);
+          return `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="py-3 px-3 font-medium text-slate-800 whitespace-nowrap">${escapeHTML(item.date)}</td>
+              <td class="py-3 px-3">${item.height} cm</td>
+              <td class="py-3 px-3 font-semibold text-slate-700">${item.weight} kg</td>
+              <td class="py-3 px-3 font-bold text-slate-900">${item.bmi.toFixed(1)}</td>
+              <td class="py-3 px-3 whitespace-nowrap">
+                <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${evalResult.colorClass}">
+                  ${evalResult.badgeText}
+                </span>
+              </td>
+              <td class="py-3 px-3 text-right">
+                <button 
+                  onclick="deleteRecord('${item.id}')" 
+                  title="刪除此筆記錄"
+                  class="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                >
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Update Chart
+      updateChart();
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('bmiChart').getContext('2d');
+      
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'BMI 數值',
+              data: [],
+              borderColor: '#059669', // Emerald-600
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderWidth: 2.5,
+              pointBackgroundColor: '#059669',
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 2,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              tension: 0.25,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleFont: { size: 12, weight: 'bold' },
+              bodyFont: { size: 12 },
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                label: function(context) {
+                  const val = context.parsed.y;
+                  const cat = evaluateBMI(val).status;
+                  return ` BMI: ${val.toFixed(1)} (${cat})`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                color: '#f1f5f9'
+              },
+              ticks: {
+                font: { size: 11 },
+                color: '#64748b'
+              }
+            },
+            y: {
+              min: 15,
+              max: 35,
+              grid: {
+                color: function(context) {
+                  // Highlight normal range borders (18.5 and 24)
+                  if (context.tick.value === 18.5 || context.tick.value === 24) {
+                    return 'rgba(16, 185, 129, 0.4)';
+                  }
+                  return '#f1f5f9';
+                }
+              },
+              ticks: {
+                font: { size: 11 },
+                color: '#64748b',
+                stepSize: 3
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart() {
+      const noChartData = document.getElementById('no-chart-data');
+      if (!chartInstance) return;
+
+      if (records.length === 0) {
+        noChartData.classList.remove('hidden');
+        noChartData.classList.add('flex');
+        chartInstance.data.labels = [];
+        chartInstance.data.datasets[0].data = [];
+        chartInstance.update();
+        return;
+      }
+
+      noChartData.classList.add('hidden');
+      noChartData.classList.remove('flex');
+
+      // Sort by date ascending for chronologic graph
+      const chronologicRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const labels = chronologicRecords.map(r => r.date);
+      const data = chronologicRecords.map(r => r.bmi);
+
+      // Adjust Y-axis scale dynamically if user has extreme BMI
+      const minBMI = Math.min(...data);
+      const maxBMI = Math.max(...data);
+      chartInstance.options.scales.y.min = Math.floor(Math.min(15, minBMI - 2));
+      chartInstance.options.scales.y.max = Math.ceil(Math.max(30, maxBMI + 2));
+
+      chartInstance.data.labels = labels;
+      chartInstance.data.datasets[0].data = data;
+      chartInstance.update();
+    }
+
+    function deleteRecord(id) {
+      records = records.filter(item => item.id !== id);
+      saveRecordsToStorage();
+      updateUI();
+    }
+
+    function confirmClearAll() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('hidden');
+    }
+
+    function executeClearAll() {
+      records = [];
+      saveRecordsToStorage();
+      closeModal();
+      updateUI();
+      // Reset live result card display
+      document.getElementById('bmi-val').textContent = '--';
+      const badge = document.getElementById('status-badge');
+      badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200';
+      badge.textContent = '尚未計算';
+      document.getElementById('gauge-needle').style.opacity = '0';
+      document.getElementById('status-desc').textContent = '歷史紀錄已清空，請重新輸入數據進行計算。';
+      document.getElementById('ideal-weight-box').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
